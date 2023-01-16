@@ -8,21 +8,54 @@ from TOKEN import token
 
 bot = telebot.TeleBot(token)
 
+calc = types.InlineKeyboardMarkup()
+calc.row(   types.InlineKeyboardButton(' ', callback_data='no'),
+            types.InlineKeyboardButton('C', callback_data='C'),
+            types.InlineKeyboardButton('Del', callback_data='Del'),
+            types.InlineKeyboardButton('/', callback_data='/'))
+calc.row(   types.InlineKeyboardButton('7', callback_data='7'),
+            types.InlineKeyboardButton('8', callback_data='8'),
+            types.InlineKeyboardButton('9', callback_data='9'),
+            types.InlineKeyboardButton('*', callback_data='*')) 
+calc.row(   types.InlineKeyboardButton('4', callback_data='4'),
+            types.InlineKeyboardButton('5', callback_data='5'),
+            types.InlineKeyboardButton('6', callback_data='6'),
+            types.InlineKeyboardButton('-', callback_data='-'))   
+calc.row(   types.InlineKeyboardButton('1', callback_data='1'),
+            types.InlineKeyboardButton('2', callback_data='2'),
+            types.InlineKeyboardButton('3', callback_data='3'),
+            types.InlineKeyboardButton('+', callback_data='+'))  
+calc.row(   types.InlineKeyboardButton(' ', callback_data='no'),
+            types.InlineKeyboardButton('0', callback_data='0'),
+            types.InlineKeyboardButton(',', callback_data='.'),
+            types.InlineKeyboardButton('=', callback_data='=')) 
+
+value = ''
+old_value = ''
+
 @bot.message_handler(commands=['start'])
 def start(message):
     text_message = f'<b><i> Привет {message.from_user.first_name}! </i></b> \U0001F600'
     # \U0001F600 - выводит смайлик, {message.from_user.first_name} - выводит имя пользователя
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=4)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=5)
     item1 = types.KeyboardButton('Знак зодиака')
     item2 = types.KeyboardButton('Угадайка')
     item3 = types.KeyboardButton('Сжать текст')
     item4 = types.KeyboardButton('Раскрыть текст')
-    markup.add(item1, item2, item3, item4)
+    item5 = types.KeyboardButton('Калькулятор')
+    markup.add(item1, item2, item3, item4, item5)
     bot.send_message(message.chat.id, text_message, parse_mode='html', reply_markup=markup)
     bot.send_message(message.chat.id, 'Выберите задачу')
-@bot.message_handler(content_types=['text'])
+
+@bot.message_handler(content_types=['text', 'calc'])
 def f(message):
-    if message.text == 'Знак зодиака':
+    global value
+    if message.text == 'Калькулятор':
+        if value == '':
+            bot.send_message(message.chat.id, '0', reply_markup=calc)
+        else:
+            bot.send_message(message.chat.id, text=value, reply_markup=calc)
+    elif message.text == 'Знак зодиака':
         markup = telebot.types.InlineKeyboardMarkup(row_width=2)
         item_1 = telebot.types.InlineKeyboardButton('овен', callback_data='овен')
         item_2 = telebot.types.InlineKeyboardButton('козерог', callback_data='козерог')
@@ -50,13 +83,15 @@ def f(message):
     elif message.text == 'Раскрыть текст':
         bot.send_message(message.chat.id, 'Введите строку для раскрытия')
         bot.register_next_step_handler(message, send_DC)
+    else:
+        bot.send_message(message.chat.id, f'{message.from_user.first_name}, не удается распознать команду, выберите пункт меню.')
+        start(message)
 def input(message):
     str_out = message.text
     return str_out
 def send_RLS(message):
     input_str = message.text
     bot.send_message(message.chat.id, str(Compress.Compress(input_str)))
-
 def send_DC(message):
     input_str = message.text
     bot.send_message(message.chat.id, str(Decompress.Decompress(input_str)))
@@ -66,8 +101,27 @@ def get_number():
     return x
 def str_compress(message):
     result = message.text
-    bot.send_message(message.chat.id, Compress.Compress(result))    
+    bot.send_message(message.chat.id, Compress.Compress(result))  
 @bot.callback_query_handler(func=lambda call: True)
+def callback_func(call):
+    global value, old_value
+    data = call.data
+    if data == 'no':
+        pass
+    elif data == 'C':
+        value = ''
+    elif data == 'Del':
+        value = value[:len(value) -1]
+    elif data == '=':
+        value = str(eval(value))
+    else:
+        value += data
+    if value != old_value:
+        if value == '':
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='0', reply_markup=calc)
+        else:
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=value, reply_markup=calc)
+    old_value = value
 def callback_inline(call):
     dikt_znak = znak_har()
     if call.data == 'овен':
@@ -119,6 +173,16 @@ def znak_har():
             str1 = file.readline().split(' ', 1)
             dict[str1[0]] = str1[1]
     return dict
-
+def callback_func(call):
+    global value, old_value
+    data = call.data
+    if data == 'no':
+        pass
+    elif data == 'C':
+        value = ''
+    elif data == '=':
+        value = str(eval(value))
+    else:
+        value += data
 print('Bot is started')
-bot.polling(non_stop=True)
+bot.polling(non_stop=False, interval=0)
